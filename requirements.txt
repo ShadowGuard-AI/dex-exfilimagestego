@@ -1,5 +1,3 @@
-```
-PIL>=10.0.0
+Pillow>=10.0.0
 faker>=20.0.0
 random_word>=0.2.2
-```
