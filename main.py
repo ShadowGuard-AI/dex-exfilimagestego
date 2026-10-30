@@ -46,7 +46,9 @@ def generate_fake_data(size):
             data += fake.password().encode() + b","
             data += fake.credit_card_number().encode() + b","
             data += str(random.randint(1000, 100000)).encode() + b"," # random financial data
-            data += random_word.get_random_word().encode() + b"," # add some random words
+            # get_random_word can hand back None for some draws; one None
+            # used to abort the whole generation with an AttributeError.
+            data += (random_word.get_random_word() or "word").encode() + b"," # add some random words
 
         return data[:size]  # Truncate to the desired size
 
@@ -99,10 +101,12 @@ def embed_data(image_path, data, output_path):
         data_len = len(data)
         # Encode the length of the data at the beginning of the image.
         data = data_len.to_bytes(4, 'big') + data
-        
+
         pixels = list(img.getdata())
-        
-        if len(data) * 8 > len(pixels):
+
+        # Each pixel stores one byte: two bits in each of the four channels.
+        # The 4 length bytes count against that capacity like any other byte.
+        if len(data) > len(pixels):
             raise ValueError("Data is too large to fit in the image.")
 
         data_index = 0
@@ -110,9 +114,12 @@ def embed_data(image_path, data, output_path):
             r, g, b, a = pixels[i]
 
             if data_index < len(data):
-                # Embed data in the least significant bit of the red channel
+                # Two bits go into every channel, so every channel mask must
+                # clear two bits. The red mask used to clear only one, which
+                # left a stale cover bit in the stored pair and made the
+                # embedded byte unrecoverable whenever that bit was set.
                 binary_data = bin(data[data_index])[2:].zfill(8)
-                r = (r & 0xFE) | int(binary_data[0:2], 2)
+                r = (r & 0xFC) | int(binary_data[0:2], 2)
                 g = (g & 0xFC) | int(binary_data[2:4], 2)
                 b = (b & 0xFC) | int(binary_data[4:6], 2)
                 a = (a & 0xFC) | int(binary_data[6:8], 2)
