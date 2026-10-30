@@ -175,6 +175,9 @@ def main():
         if not args.image_path.lower().endswith(".png"):
             raise ValueError("Input image must be a PNG file.")
 
+        if args.data_size < 0:
+            raise ValueError("--data_size cannot be negative.")
+
         # Determine the data source
         if args.generate_data:
             data = generate_fake_data(args.data_size)
