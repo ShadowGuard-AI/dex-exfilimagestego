@@ -50,6 +50,9 @@ def generate_fake_data(size):
             # used to abort the whole generation with an AttributeError.
             data += (random_word.get_random_word() or "word").encode() + b"," # add some random words
 
+        # The loop overshoots on purpose and this slice cuts the last
+        # record mid field, so the tail of generated data is a partial
+        # record by construction. It is filler, and reads as filler.
         return data[:size]  # Truncate to the desired size
 
     except Exception as e:
@@ -97,6 +100,11 @@ def embed_data(image_path, data, output_path):
             raise FileNotFoundError(f"Image not found: {image_path}")
 
         img = Image.open(image_path)
+        # Converting to RGBA means the alpha channel carries two of
+        # every eight bits as well. Any later tool that flattens the
+        # image, drops alpha, or premultiplies it destroys a quarter
+        # of the payload, and nothing in the output marks that the
+        # alpha channel is load bearing.
         img = img.convert("RGBA")
         data_len = len(data)
         # Encode the length of the data at the beginning of the image.
@@ -191,6 +199,10 @@ def main():
             logging.info(f"Generated 1024 bytes of fake data.")
 
         # Embed the data into the image
+        # This tool only embeds. There is no extraction path anywhere
+        # in the file, so data hidden by a run can be read back only by
+        # separate code that knows the length first, two bits per
+        # channel layout used in embed_data.
         embed_data(args.image_path, data, args.output_path)
 
         # Simulate exfiltration if a protocol is specified
